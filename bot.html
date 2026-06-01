@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>OxatovAccount</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --bg: #080c12;
+    --surface: #0e1520;
+    --surface2: #141d2b;
+    --border: rgba(255,255,255,0.06);
+    --accent: #3d82f7;
+    --accent2: #7c4dff;
+    --gold: #f0b429;
+    --green: #29f07a;
+    --red: #f04b29;
+    --text: #e8edf5;
+    --muted: rgba(232,237,245,0.4);
+    --card-glow: rgba(61,130,247,0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* BACKGROUND GRID */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(61,130,247,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(61,130,247,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px;
+    right: -150px;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(61,130,247,0.12) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* CANVAS */
+  #stars-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.6;
+  }
+
+  /* LAYOUT */
+  #root {
+    position: relative;
+    z-index: 1;
+    max-width: 430px;
+    margin: 0 auto;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 80px;
+  }
+
+  /* ── HEADER ── */
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px 14px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: linear-gradient(to bottom, var(--bg) 60%, transparent);
+  }
+
+  .logo-mark {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+
+  .logo-mark span { color: var(--muted); }
+
+  .balance-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 6px 14px 6px 10px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .balance-pill:active { transform: scale(0.96); }
+  .balance-pill .star-icon { font-size: 16px; }
+  .balance-pill .amount { color: var(--gold); font-family: 'JetBrains Mono', monospace; }
+
+  /* ── HERO (каталог) ── */
+  .hero {
+    padding: 10px 20px 20px;
+  }
+
+  .hero-title {
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    margin-bottom: 6px;
+  }
+
+  .hero-title span {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-sub {
+    font-size: 13px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ── STATS ROW ── */
+  .stats-row {
+    display: flex;
+    gap: 10px;
+    padding: 0 20px 20px;
+  }
+
+  .stat-chip {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px 14px;
+    text-align: center;
+  }
+
+  .stat-chip .val {
+    font-size: 20px;
+    font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent);
+    display: block;
+  }
+
+  .stat-chip .lbl {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 2px;
+    display: block;
+  }
+
+  /* ── SECTION LABEL ── */
+  .section-label {
+    padding: 0 20px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ── COUNTRY GRID ── */
+  .country-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 0 20px;
+  }
+
+  .country-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 18px 16px;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(.16,1,.3,1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .country-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(61,130,247,0.06), transparent);
+    opacity: 0;
+    transition: opacity 0.25s;
+  }
+
+  .country-card:active {
+    transform: scale(0.96);
+    border-color: rgba(61,130,247,0.3);
+  }
+
+  .country-card:active::before { opacity: 1; }
+
+  .country-flag {
+    font-size: 32px;
+    display: block;
+    margin-bottom: 10px;
+    line-height: 1;
+  }
+
+  .country-name {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .country-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .country-price {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--gold);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .country-stock {
+    font-size: 10px;
+    color: var(--muted);
+    background: var(--surface2);
+    border-radius: 6px;
+    padding: 2px 7px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ── ACCOUNT LIST ── */
+  .accounts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0 20px;
+  }
+
+  .account-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px;
+    transition: border-color 0.2s;
+  }
+
+  .account-card.available { border-color: rgba(41,240,122,0.15); }
+
+  .acc-row1 {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .acc-phone {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .dc-badge {
+    font-size: 10px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    background: rgba(61,130,247,0.15);
+    color: var(--accent);
+    border: 1px solid rgba(61,130,247,0.25);
+    border-radius: 6px;
+    padding: 3px 8px;
+    letter-spacing: 0.05em;
+  }
+
+  .acc-row2 {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .acc-detail {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .acc-price {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--gold);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .acc-price .star { font-size: 14px; }
+
+  .buy-btn {
+    width: 100%;
+    margin-top: 14px;
+    padding: 13px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.02em;
+  }
+
+  .buy-btn:active { transform: scale(0.97); opacity: 0.85; }
+  .buy-btn:disabled { background: var(--surface2); color: var(--muted); cursor: default; }
+
+  /* ── BACK BTN ── */
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 4px;
+  }
+
+  .back-btn svg { transition: transform 0.2s; }
+  .back-btn:active svg { transform: translateX(-4px); }
+
+  /* ── ORDERS ── */
+  .orders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 0 20px;
+  }
+
+  .order-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px;
+  }
+
+  .order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+  }
+
+  .order-phone {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .order-status {
+    font-size: 10px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    background: rgba(41,240,122,0.12);
+    color: var(--green);
+    border: 1px solid rgba(41,240,122,0.25);
+    border-radius: 6px;
+    padding: 3px 8px;
+    text-transform: uppercase;
+  }
+
+  .order-id {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 6px;
+    word-break: break-all;
+  }
+
+  .order-amount {
+    font-size: 13px;
+    color: var(--gold);
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 12px;
+  }
+
+  .code-box {
+    background: var(--surface2);
+    border: 1px solid rgba(61,130,247,0.2);
+    border-radius: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    margin-bottom: 8px;
+  }
+
+  .code-label {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+
+  .code-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+  }
+
+  .outline-btn {
+    width: 100%;
+    padding: 11px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .outline-btn:active { background: var(--surface2); }
+
+  /* ── PROFILE ── */
+  .profile-wrap { padding: 0 20px; }
+
+  .avatar-block {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+
+  .avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+
+  .profile-name {
+    font-size: 18px;
+    font-weight: 800;
+    margin-bottom: 2px;
+  }
+
+  .profile-id {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .profile-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .profile-stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 10px;
+    text-align: center;
+  }
+
+  .profile-stat .val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .profile-stat .lbl {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .deposit-btn {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--gold), #e08800);
+    border: none;
+    border-radius: 14px;
+    color: #000;
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    margin-bottom: 10px;
+    transition: all 0.2s;
+    letter-spacing: 0.02em;
+  }
+
+  .deposit-btn:active { transform: scale(0.97); }
+
+  .support-btn {
+    width: 100%;
+    padding: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .support-btn:active { background: var(--surface2); }
+
+  /* ── NEWS ── */
+  .news-list { display: flex; flex-direction: column; gap: 10px; padding: 0 20px; }
+
+  .news-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 14px 14px 0;
+    padding: 16px;
+  }
+
+  .news-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+  .news-text { font-size: 13px; color: var(--muted); line-height: 1.5; margin-bottom: 8px; }
+  .news-date { font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+
+  /* ── BOTTOM NAV ── */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: rgba(8,12,18,0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-around;
+    padding: 10px 0 max(10px, env(safe-area-inset-bottom));
+    max-width: 430px;
+    margin: 0 auto;
+  }
+
+  /* This makes it truly centered on desktop */
+  @media (min-width: 430px) {
+    .bottom-nav {
+      left: 50%;
+      transform: translateX(-50%);
+      width: 430px;
+      border-radius: 20px 20px 0 0;
+    }
+  }
+
+  .nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 16px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    font-family: 'Syne', sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    transition: color 0.2s;
+  }
+
+  .nav-btn svg { transition: all 0.2s; }
+
+  .nav-btn.active {
+    color: var(--accent);
+  }
+
+  .nav-btn.active svg {
+    filter: drop-shadow(0 0 6px rgba(61,130,247,0.6));
+  }
+
+  /* ── LOADING / EMPTY ── */
+  .loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    gap: 14px;
+    color: var(--muted);
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .spinner {
+    width: 28px;
+    height: 28px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-80px);
+    z-index: 1000;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: transform 0.35s cubic-bezier(.16,1,.3,1);
+    backdrop-filter: blur(20px);
+    max-width: 90vw;
+    text-align: center;
+  }
+
+  #toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ── PAGE TRANSITIONS ── */
+  .page-enter {
+    animation: pageIn 0.3s cubic-bezier(.16,1,.3,1) forwards;
+  }
+
+  @keyframes pageIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── CONTENT WRAPPER ── */
+  #content { flex: 1; }
+
+</style>
+</head>
+<body>
+
+<canvas id="stars-canvas"></canvas>
+
+<div id="root">
+  <div class="top-bar">
+    <div class="logo-mark">Oxatov<span>Account</span></div>
+    <div class="balance-pill" onclick="window.gotoProfile()">
+      <span class="star-icon">⭐</span>
+      <span class="amount" id="balance-val">—</span>
+    </div>
+  </div>
+  <div id="content"></div>
+</div>
+
+<nav class="bottom-nav">
+  <button class="nav-btn active" data-tab="catalog" onclick="switchTab('catalog')">
+    <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+      <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+    </svg>
+    Каталог
+  </button>
+  <button class="nav-btn" data-tab="orders" onclick="switchTab('orders')">
+    <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+      <rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/>
+    </svg>
+    Заказы
+  </button>
+  <button class="nav-btn" data-tab="news" onclick="switchTab('news')">
+    <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10l4 4v10a2 2 0 01-2 2z"/>
+      <path d="M9 12h6M9 16h4M13 4v4h4"/>
+    </svg>
+    Новости
+  </button>
+  <button class="nav-btn" data-tab="profile" onclick="switchTab('profile')">
+    <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+    </svg>
+    Профиль
+  </button>
+</nav>
+
+<div id="toast"></div>
+
+<script>
+(function() {
+  // ── Telegram WebApp ──
+  const tg = window.Telegram?.WebApp || {
+    initDataUnsafe: { user: { id: 12345, first_name: 'Пользователь', username: 'demo' } },
+    expand() {}, ready() {}, enableClosingConfirmation() {},
+    showPopup(p, cb) { cb(confirm(`${p.title}\n\n${p.message}`) ? 'buy' : 'cancel'); },
+    openTelegramLink(url) { window.open(url, '_blank'); }
+  };
+
+  try { tg.expand?.(); tg.ready?.(); tg.enableClosingConfirmation?.(); } catch(e) {}
+
+  // ── Stars Canvas ──
+  const canvas = document.getElementById('stars-canvas');
+  const ctx = canvas?.getContext?.('2d');
+  let stars = [];
+
+  function resizeCanvas() {
+    if (!canvas) return;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+
+  function initStars() {
+    if (!canvas) return;
+    stars = [];
+    for (let i = 0; i < 120; i++) {
+      stars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 1.8 + 0.3,
+        speed: 0.15 + Math.random() * 0.25,
+        opacity: Math.random() * 0.4 + 0.1,
+        twinkle: Math.random() * Math.PI * 2
+      });
+    }
+  }
+
+  function drawStars() {
+    if (!ctx || !canvas) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (const s of stars) {
+      s.twinkle += 0.015;
+      s.y -= s.speed;
+      if (s.y < -10) { s.y = canvas.height + 10; s.x = Math.random() * canvas.width; }
+      const alpha = s.opacity + Math.sin(s.twinkle) * 0.12;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,255,${Math.max(0.05, Math.min(0.55, alpha))})`;
+      ctx.fill();
+    }
+    requestAnimationFrame(drawStars);
+  }
+
+  window.addEventListener('resize', () => { resizeCanvas(); initStars(); });
+  resizeCanvas(); initStars(); drawStars();
+
+  // ── State ──
+  const userId = Number(tg.initDataUnsafe?.user?.id || 0);
+  let currentTab = 'catalog';
+  let balance = 0;
+  let catalog = [];
+  let orders = [];
+  let codesMap = {};
+  let isLoading = false;
+  let loaded = false;
+  let selectedCountry = null;
+
+  const content = document.getElementById('content');
+  const balanceEl = document.getElementById('balance-val');
+
+  // ── API ──
+  const API_BASE = '';
+
+  async function api(endpoint, opts = {}) {
+    try {
+      const r = await fetch(API_BASE + endpoint, {
+        headers: { 'Content-Type': 'application/json' },
+        ...opts
+      });
+      const text = await r.text();
+      try { return JSON.parse(text); } catch { return { error: true }; }
+    } catch { return { error: true }; }
+  }
+
+  async function loadAll() {
+    if (isLoading) return;
+    isLoading = true;
+    const [bal, cat, ord, codes] = await Promise.allSettled([
+      api(`/api/balance?user_id=${userId}`),
+      api('/api/catalog'),
+      api(`/api/orders?user_id=${userId}`),
+      api(`/api/codes?user_id=${userId}`)
+    ]);
+
+    if (bal.value && !bal.value.error && typeof bal.value.balance === 'number') {
+      balance = bal.value.balance;
+      balanceEl.textContent = balance;
+    }
+    if (cat.value && !cat.value.error && Array.isArray(cat.value.items)) catalog = cat.value.items;
+    if (ord.value && !ord.value.error && Array.isArray(ord.value.orders)) orders = ord.value.orders;
+    if (codes.value && !codes.value.error && Array.isArray(codes.value.codes)) {
+      codesMap = {};
+      for (const c of codes.value.codes) if (!codesMap[c.order_id]) codesMap[c.order_id] = c;
+    }
+    loaded = true;
+    isLoading = false;
+    render();
+  }
+
+  // ── Toast ──
+  let toastTimer;
+  function showToast(msg, duration = 2800) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), duration);
+  }
+
+  // ── Nav ──
+  window.switchTab = function(tab) {
+    currentTab = tab;
+    selectedCountry = null;
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    render();
+  };
+
+  window.gotoProfile = function() { switchTab('profile'); };
+
+  // ── Render ──
+  function render() {
+    if (currentTab === 'catalog') renderCatalog();
+    else if (currentTab === 'orders') renderOrders();
+    else if (currentTab === 'news') renderNews();
+    else if (currentTab === 'profile') renderProfile();
+  }
+
+  // ── CATALOG ──
+  const FLAGS = { US:'🇺🇸', RU:'🇷🇺', BY:'🇧🇾', KZ:'🇰🇿', UA:'🇺🇦', DE:'🇩🇪', GB:'🇬🇧', EU:'🌍', TR:'🇹🇷', FR:'🇫🇷', PL:'🇵🇱', NL:'🇳🇱' };
+  const COUNTRY_NAMES = { US:'США', RU:'Россия', BY:'Беларусь', KZ:'Казахстан', UA:'Украина', DE:'Германия', GB:'Великобритания', EU:'Европа', TR:'Турция', FR:'Франция', PL:'Польша', NL:'Нидерланды' };
+
+  function renderCatalog() {
+    if (!loaded) {
+      content.innerHTML = `<div class="loading"><div class="spinner"></div><span>Загрузка...</span></div>`;
+      content.className = '';
+      return;
+    }
+
+    if (selectedCountry) { renderCountry(selectedCountry); return; }
+
+    // Group by country
+    const byCountry = {};
+    for (const a of catalog) {
+      if (!byCountry[a.country]) byCountry[a.country] = [];
+      byCountry[a.country].push(a);
+    }
+
+    const countries = Object.keys(byCountry);
+    const totalAccounts = catalog.length;
+
+    let html = `
+      <div class="hero page-enter">
+        <div class="hero-title">Telegram<br><span>Аккаунты</span></div>
+        <div class="hero-sub">// авторегистрации · быстрая доставка</div>
+      </div>
+      <div class="stats-row page-enter">
+        <div class="stat-chip"><span class="val">${totalAccounts}</span><span class="lbl">Доступно</span></div>
+        <div class="stat-chip"><span class="val">${countries.length}</span><span class="lbl">Стран</span></div>
+        <div class="stat-chip"><span class="val">24/7</span><span class="lbl">Онлайн</span></div>
+      </div>
+    `;
+
+    if (!countries.length) {
+      html += `<div class="empty">😕 Аккаунтов пока нет</div>`;
+    } else {
+      html += `<div class="section-label">// Выберите страну</div><div class="country-grid page-enter">`;
+      for (const c of countries) {
+        const items = byCountry[c];
+        const minPrice = Math.min(...items.map(i => i.price));
+        const flag = FLAGS[c] || '🌍';
+        const name = COUNTRY_NAMES[c] || c;
+        html += `
+          <div class="country-card" onclick="selectCountry('${c}')">
+            <span class="country-flag">${flag}</span>
+            <div class="country-name">${name}</div>
+            <div class="country-meta">
+              <span class="country-price">от ${minPrice}★</span>
+              <span class="country-stock">${items.length} шт</span>
+            </div>
+          </div>`;
+      }
+      html += `</div>`;
+    }
+
+    content.innerHTML = html;
+  }
+
+  window.selectCountry = function(country) {
+    selectedCountry = country;
+    renderCountry(country);
+  };
+
+  function renderCountry(country) {
+    const items = catalog.filter(a => a.country === country);
+    const flag = FLAGS[country] || '🌍';
+    const name = COUNTRY_NAMES[country] || country;
+
+    let html = `
+      <button class="back-btn" onclick="backToCatalog()">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+        Назад
+      </button>
+      <div class="hero page-enter">
+        <div class="hero-title">${flag} <span>${name}</span></div>
+        <div class="hero-sub">// ${items.length} аккаунт${items.length !== 1 ? 'ов' : ''} доступно</div>
+      </div>
+    `;
+
+    if (!items.length) {
+      html += `<div class="empty">В этой стране пока нет аккаунтов</div>`;
+    } else {
+      html += `<div class="section-label">// Аккаунты</div><div class="accounts-list page-enter">`;
+      for (const a of items) {
+        const sold = a.status !== 'available';
+        html += `
+          <div class="account-card ${sold ? '' : 'available'}">
+            <div class="acc-row1">
+              <span class="acc-phone">📱 ${a.phone || '••••••••••'}</span>
+              <span class="dc-badge">${a.dc || 'DC1'}</span>
+            </div>
+            <div class="acc-row2">
+              <span class="acc-detail">${name} · авторег</span>
+              <span class="acc-price">${a.price}<span class="star">★</span></span>
+            </div>
+            ${!sold
+              ? `<button class="buy-btn" onclick="buyAccount(${a.id}, ${a.price})">Купить за ${a.price} ★</button>`
+              : `<button class="buy-btn" disabled>Продано</button>`}
+          </div>`;
+      }
+      html += `</div>`;
+    }
+
+    content.innerHTML = html;
+  }
+
+  window.backToCatalog = function() {
+    selectedCountry = null;
+    renderCatalog();
+  };
+
+  // ── BUY ──
+  window.buyAccount = function(accountId, price) {
+    if (balance < price) {
+      showToast(`❌ Нужно ${price}★, у вас ${balance}★`);
+      return;
+    }
+
+    tg.showPopup({
+      title: 'Подтверждение покупки',
+      message: `Купить аккаунт за ${price} звёзд?`,
+      buttons: [
+        { id: 'buy', type: 'ok', text: '✅ Купить' },
+        { id: 'cancel', type: 'cancel', text: 'Отмена' }
+      ]
+    }, async (btnId) => {
+      if (btnId !== 'buy') return;
+      showToast('⏳ Обработка...');
+      const res = await api('/api/buy', {
+        method: 'POST',
+        body: JSON.stringify({ user_id: userId, account_id: accountId })
+      });
+      if (res?.success) {
+        balance -= price;
+        balanceEl.textContent = balance;
+        showToast('✅ Куплено! Проверьте заказы');
+        await loadAll();
+        switchTab('orders');
+      } else {
+        showToast(res?.error === 'sold_out' ? '❌ Уже продано' : '❌ Ошибка покупки');
+      }
+    });
+  };
+
+  // ── ORDERS ──
+  function renderOrders() {
+    if (!loaded) {
+      content.innerHTML = `<div class="loading"><div class="spinner"></div><span>Загрузка...</span></div>`;
+      return;
+    }
+
+    let html = `
+      <div class="hero page-enter">
+        <div class="hero-title">Мои <span>Заказы</span></div>
+        <div class="hero-sub">// история покупок</div>
+      </div>`;
+
+    if (!orders.length) {
+      html += `<div class="empty">📭 Заказов пока нет</div>`;
+    } else {
+      html += `<div class="section-label">// ${orders.length} заказ${orders.length > 1 ? 'а' : ''}</div><div class="orders-list page-enter">`;
+      for (const o of orders) {
+        const codeData = codesMap[o.order_id];
+        const expiry = codeData ? new Date(String(codeData.expires).replace(' ', 'T')) : null;
+        const hasCode = codeData && expiry && !isNaN(expiry) && expiry > Date.now();
+        html += `
+          <div class="order-card">
+            <div class="order-header">
+              <span class="order-phone">📱 ${o.phone}</span>
+              <span class="order-status">${o.status === 'completed' ? '✓ выполнен' : 'ожидает'}</span>
+            </div>
+            <div class="order-id"># ${o.order_id}</div>
+            <div class="order-amount">−${o.amount}★</div>
+            ${hasCode ? `
+              <div class="code-box" onclick="copyCode('${codeData.code}')">
+                <div class="code-label">🔐 Код авторизации · нажми чтобы скопировать</div>
+                <div class="code-value">${codeData.code}</div>
+              </div>
+              <button class="outline-btn" onclick="requestCode('${o.order_id}', '${o.phone}')">🔄 Обновить код</button>
+            ` : `
+              <button class="buy-btn" onclick="requestCode('${o.order_id}', '${o.phone}')">🔐 Получить код</button>
+            `}
+          </div>`;
+      }
+      html += `</div>`;
+    }
+
+    content.innerHTML = html;
+  }
+
+  window.copyCode = function(code) {
+    navigator.clipboard?.writeText(code).then(() => showToast('✅ Код скопирован')).catch(() => showToast('Код: ' + code));
+  };
+
+  window.requestCode = async function(orderId, phone) {
+    showToast('⏳ Запрашиваю код...');
+    const res = await api('/api/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId, order_id: orderId, phone })
+    });
+    if (res?.success) {
+      showToast(`✅ Новый код: ${res.code}`);
+      await loadAll();
+    } else {
+      showToast('❌ Не удалось получить код');
+    }
+  };
+
+  // ── NEWS ──
+  function renderNews() {
+    const news = [
+      { icon: '🆕', title: 'Аккаунты в наличии', text: 'Telegram авторегистрации обновляются каждые 6 часов. Всегда свежие партии.', date: 'Июнь 2026' },
+      { icon: '⭐', title: 'Пополнение через Stars', text: 'Пополняйте баланс Telegram Stars — зачисление мгновенное, без комиссий.', date: 'Июнь 2026' },
+      { icon: '🔄', title: 'Синхронизация LolzTeam', text: 'Аккаунты автоматически синхронизируются с LolzTeam Market в реальном времени.', date: 'Июнь 2026' },
+      { icon: '🔐', title: 'Коды прямо в приложении', text: 'Коды подтверждения приходят в Mini App — удобно и без лишних шагов.', date: 'Июнь 2026' },
+    ];
+
+    let html = `
+      <div class="hero page-enter">
+        <div class="hero-title">Ново<span>сти</span></div>
+        <div class="hero-sub">// обновления и анонсы</div>
+      </div>
+      <div class="news-list page-enter">`;
+
+    for (const n of news) {
+      html += `
+        <div class="news-card">
+          <div class="news-title">${n.icon} ${n.title}</div>
+          <div class="news-text">${n.text}</div>
+          <div class="news-date">📅 ${n.date}</div>
+        </div>`;
+    }
+    html += `</div>`;
+    content.innerHTML = html;
+  }
+
+  // ── PROFILE ──
+  function renderProfile() {
+    const user = tg.initDataUnsafe?.user || { id: '—', first_name: 'Пользователь' };
+    const totalSpent = orders.reduce((s, o) => s + Number(o.amount || 0), 0);
+    const initial = (user.first_name || 'U')[0].toUpperCase();
+
+    const html = `
+      <div class="hero page-enter">
+        <div class="hero-title">Про<span>филь</span></div>
+        <div class="hero-sub">// личный кабинет</div>
+      </div>
+      <div class="profile-wrap page-enter">
+        <div class="avatar-block">
+          <div class="avatar">${initial}</div>
+          <div>
+            <div class="profile-name">${user.first_name || 'Пользователь'}</div>
+            <div class="profile-id">ID: ${user.id}${user.username ? ' · @' + user.username : ''}</div>
+          </div>
+        </div>
+        <div class="profile-stats">
+          <div class="profile-stat"><span class="val">${balance}</span><span class="lbl">Баланс ★</span></div>
+          <div class="profile-stat"><span class="val">${orders.length}</span><span class="lbl">Заказов</span></div>
+          <div class="profile-stat"><span class="val">${totalSpent}</span><span class="lbl">Потрачено</span></div>
+        </div>
+        <button class="deposit-btn" onclick="depositStars()">⭐ Пополнить баланс</button>
+        <button class="support-btn" onclick="tg.openTelegramLink('https://t.me/oxatov')">🆘 Поддержка</button>
+      </div>`;
+
+    content.innerHTML = html;
+  }
+
+  // ── DEPOSIT ──
+  window.depositStars = async function() {
+    tg.showPopup({
+      title: 'Пополнение баланса',
+      message: 'Введите сумму в Stars для пополнения',
+      buttons: [
+        { id: '50', text: '50 ⭐' },
+        { id: '100', text: '100 ⭐' },
+        { id: '250', text: '250 ⭐' },
+        { id: 'cancel', type: 'cancel', text: 'Отмена' }
+      ]
+    }, async (btnId) => {
+      if (btnId === 'cancel' || !btnId) return;
+      const amount = parseInt(btnId);
+      showToast('⏳ Создаю инвойс...');
+      const res = await api('/api/deposit', {
+        method: 'POST',
+        body: JSON.stringify({ user_id: userId, amount })
+      });
+      if (res?.success) showToast(`✅ ${amount} ★ — ожидайте зачисления`);
+      else showToast('❌ Ошибка пополнения');
+    });
+  };
+
+  // ── INIT ──
+  render(); // показываем скелет сразу
+  loadAll();
+
+  // Auto-refresh каждые 15 сек
+  setInterval(loadAll, 15000);
+
+})();
+</script>
+</body>
+</html>
